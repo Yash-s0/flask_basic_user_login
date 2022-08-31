@@ -1,34 +1,41 @@
-from flask import Flask
+# redis dekhna h
+# how to create and verify bearer token
+
+
+from flask import Flask, render_template
 from flask_restful import Resource, Api, request
-
-from sqlalchemy.sql import func
-
-# from flask_sqlalchemy import SQLAlchemy
+from passlib.hash import sha256_crypt
+from sqlalchemy import create_engine, Column, Integer, String, inspect
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import as_declarative, declared_attr
 
 
 app = Flask(__name__)
 api = Api(app)
 
 
-# db = SQLAlchemy(app)
-
-
 users = {}
 
 
-# app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///site.db"
+dbEngine = create_engine("sqlite:///site.db")
+Session = sessionmaker(bind=dbEngine)
 
-# db.create_all()
+
+@as_declarative()
+class Base:
+    @declared_attr
+    def __tablename__(cls) -> str:
+        return cls.__name__.lower()
+
+    def _asdict(self):
+        return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
 
 
-# class Profile(db.Model):
-#     id = db.Column(db.Integer, primary_key=True, unique=True)
-#     user_id = db.Column(db.String(200), primary_key=True, unique=True, nullable=False)
-#     password = db.Column(db.String(200), unique=False, nullable=False)
-
-#     def __init__(self, user_id, password):
-#         self.user_id = user_id
-#         self.password = password
+class User(Base):
+    __tablename__ = "user"
+    id = Column(Integer, unique=True, primary_key=True)
+    username = Column(String(200), unique=True, nullable=False)
+    password = Column(String(200), unique=False, nullable=False)
 
 
 class HealthCheck(Resource):
@@ -39,19 +46,38 @@ class HealthCheck(Resource):
 class RegisterUser(Resource):
     def post(self):
         args = request.json
-        user_id = args.get("user_id")
+        username = args.get("username")
         password = args.get("password")
-        if user_id is None or password is None:
-            return {"success": False, "message": "Missing required params."}, 400
-        if user_id in users:
+        hashed_pass = sha256_crypt.encrypt(password)
+        # to decode the password.
+        # org_pass = sha256_crypt.verify(password, hashed_pass)
+
+        if username is None or password is None:
+            return {"success": False, "message": "Missing required params"}, 400
+
+        if username in users:
             return {"success": False, "message": "User already exists."}, 409
-        users[user_id] = password
-        return {"success": True, "message": "Successfull register!"}
+        # users[username] = password
+
+        new_user = User(username=username, password=hashed_pass)
+        db = Session()
+        db.add(new_user)
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "Successfull register!",
+        }
 
 
 class AllUsers(Resource):
+    # WORKING GET ALL USERS
     def get(self):
-        return users
+        db = Session()
+        all_users = db.query(User).all()
+        all_users = [user._asdict() for user in all_users]
+
+        return [name["username"] for name in all_users]
 
 
 api.add_resource(HealthCheck, "/health_check")
@@ -60,4 +86,5 @@ api.add_resource(AllUsers, "/get_all_users")
 
 
 if __name__ == "__main__":
+    Base.metadata.create_all(dbEngine)
     app.run(debug=True)
