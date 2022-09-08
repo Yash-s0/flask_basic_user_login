@@ -84,7 +84,6 @@ class RegisterUser(Resource):
         user = db.query(User).filter_by(username=username).first()
         if user:
             return {"success": False, "message": "User already exists."}, 409
-        # users[username] = password
 
         new_user = User(username=username, password=hashed_pass)
 
@@ -110,14 +109,11 @@ class LogInUser(Resource):
         if not user:
             return {"success": False, "message": "User does not exist."}
 
-        # print(user.username)
-
         verify_password = sha256_crypt.verify(password_login, user.password)
 
         if not verify_password:
             return {"success": False, "message": "Wrong password."}
 
-        print(user.username)
         bearer_token = encode_auth_token(user.username)
         print(bearer_token)
         db.close()
@@ -141,13 +137,14 @@ class UserInfo(Resource):
         user = db.query(User).filter_by(username=verify["username"]).first()
         data = user._asdict()
         del data["password"]
+        del data["id"]
         return data
 
 
-api.add_resource(HealthCheck, "/health-check")
+api.add_resource(HealthCheck, "/")
 api.add_resource(RegisterUser, "/register")
 api.add_resource(UserInfo, "/user-info")
-api.add_resource(LogInUser, "/login")
+api.add_resource(LogInUser, "/login", methods=["post"])
 
 
 if __name__ == "__main__":
