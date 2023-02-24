@@ -22,15 +22,15 @@ def encode_auth_token(user_id):
     Generates the Auth Token
     :return: string
     """
-    # try:
-    payload = {
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=0, seconds=60),
-        "iat": datetime.datetime.utcnow(),
-        "sub": user_id,
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-    # except Exception as e:
-    #     print(e)
+    try:
+        payload = {
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(days=0, seconds=60),
+            "iat": datetime.datetime.utcnow(),
+            "sub": user_id,
+        }
+        return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    except Exception as e:
+        print(e)
 
 
 def decode_auth_token(auth_token):
